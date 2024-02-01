@@ -12,6 +12,7 @@ func main() {
 		log.Println(err.Error())
 	}
 	defer listener.Close()
+	log.Printf("프로그램 시작")
 
 	for {
 		// 클라이언트 요청 대기
@@ -21,36 +22,39 @@ func main() {
 		if err != nil {
 			log.Println(err.Error())
 			continue
+		} else {
+			log.Printf("클라이언트 연결 : %v", conn.RemoteAddr())
 		}
-		// defer conn.Close()
 
-		go ConnHandler(conn)
-	}
-}
+		// 고루틴 처리
+		go func() {
+			recvBuf := make([]byte, 65536)
+			for {
+				// err 처리
+				n, err := conn.Read(recvBuf)
+				if err != nil {
+					if io.EOF == err {
+						log.Println("err(eof):", err)
+						log.Printf("연결 종료: %v", conn.RemoteAddr().String())
+						//break
+					}
+					log.Println("err:", err)
+					//break
+					return
+				}
 
-func ConnHandler(conn net.Conn) {
-	recvBuf := make([]byte, 4096)
-	for {
-		// err 처리
-		n, err := conn.Read(recvBuf)
-		if err != nil {
-			if io.EOF == err {
-				log.Println("err(eof):", err)
-				break
+				if 0 < n {
+					// 받아온 길이만큼 슬라이스 잘라서 출력
+					data := recvBuf[:n]
+					log.Println(string(data))
+					_, err = conn.Write(data[:n])
+
+					if err != nil {
+						log.Println("err:", err)
+						break
+					}
+				}
 			}
-			log.Println("err:", err)
-			break
-		}
-
-		if 0 < n {
-			data := recvBuf[:n]
-			log.Println(string(data))
-			_, err = conn.Write(data[:n])
-
-			if err != nil {
-				log.Println("err:", err)
-				break
-			}
-		}
+		}()
 	}
 }
